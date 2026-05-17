@@ -1,0 +1,9 @@
+[Unit]
+Description=Prune Storj noncurrent versions older than 90 days
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/storj-prune.sh
+TimeoutStartSec=0

@@ -1,0 +1,24 @@
+[Unit]
+Description=Immich Postgres
+After=network-online.target
+Wants=network-online.target
+StartLimitIntervalSec=0
+
+[Container]
+Image=ghcr.io/immich-app/postgres:14-vectorchord0.4.3-pgvectors0.2.0@sha256:bcf63357191b76a916ae5eb93464d65c07511da41e3bf7a8416db519b40b1c23
+ContainerName=immich-db
+Network=immich.network
+Volume=/var/srv/immich/db:/var/lib/postgresql/data:Z
+EnvironmentFile=/etc/immich/db.env
+Environment=POSTGRES_DB=immich
+HealthCmd=pg_isready -U postgres
+HealthInterval=10s
+HealthRetries=5
+AutoUpdate=registry
+
+[Service]
+Restart=always
+TimeoutStartSec=300
+
+[Install]
+WantedBy=multi-user.target

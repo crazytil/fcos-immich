@@ -1,0 +1,9 @@
+[Unit]
+Description=Immich daily backup to wasabi-immich-backup
+After=rclone-wasabi-immich-backup.service immich-db.service immich-server.service
+Wants=rclone-wasabi-immich-backup.service
+ConditionPathIsMountPoint=/mnt/wasabi-immich-backup
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/fcos-backup.sh

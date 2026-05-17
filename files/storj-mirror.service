@@ -1,0 +1,9 @@
+[Unit]
+Description=Mirror wasabi-immich/library to Storj
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/storj-mirror.sh
+TimeoutStartSec=0

@@ -1,0 +1,19 @@
+[Unit]
+Description=Newt container
+Requires=podman.socket
+After=podman.socket
+
+[Container]
+ContainerName=newt
+Image=docker.io/fosrl/newt
+Network=host
+EnvironmentFile=/etc/newt/newt.env
+Environment=DOCKER_SOCKET=/var/run/docker.sock
+Volume=/run/podman/podman.sock:/var/run/docker.sock
+SecurityLabelDisable=true
+
+[Service]
+Restart=always
+
+[Install]
+WantedBy=default.target

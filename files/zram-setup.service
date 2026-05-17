@@ -1,0 +1,19 @@
+[Unit]
+Description=Configure zram0 as swap
+DefaultDependencies=no
+Before=swap.target
+After=systemd-modules-load.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStartPre=/usr/sbin/modprobe zram
+ExecStartPre=/usr/bin/bash -c 'echo zstd > /sys/block/zram0/comp_algorithm'
+ExecStartPre=/usr/bin/bash -c 'echo 3G > /sys/block/zram0/disksize'
+ExecStart=/usr/sbin/mkswap -L zram0 /dev/zram0
+ExecStart=/usr/sbin/swapon --discard --priority 100 /dev/zram0
+ExecStop=/usr/sbin/swapoff /dev/zram0
+ExecStop=/usr/bin/bash -c 'echo 1 > /sys/block/zram0/reset'
+
+[Install]
+WantedBy=multi-user.target

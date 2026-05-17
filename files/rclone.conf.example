@@ -1,0 +1,17 @@
+[wasabi]
+type = s3
+provider = Wasabi
+access_key_id = REPLACE_WASABI_ACCESS_KEY
+secret_access_key = REPLACE_WASABI_SECRET_KEY
+endpoint = s3.ap-southeast-2.wasabisys.com
+region = ap-southeast-2
+directory_markers = true
+
+[storj]
+type = s3
+provider = Other
+endpoint = gateway.storjshare.io
+access_key_id = REPLACE_STORJ_ACCESS_KEY
+secret_access_key = REPLACE_STORJ_SECRET_KEY
+chunk_size = 64Mi
+upload_concurrency = 4

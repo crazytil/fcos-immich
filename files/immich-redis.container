@@ -1,0 +1,17 @@
+[Unit]
+Description=Immich Valkey
+After=network-online.target
+Wants=network-online.target
+StartLimitIntervalSec=0
+
+[Container]
+Image=docker.io/valkey/valkey:9@sha256:8436e10bc65c94886a91d4415b6a6dfa9cb5a306fb3b996e5bb67cd2b4854193
+ContainerName=immich-redis
+Network=immich.network
+AutoUpdate=registry
+
+[Service]
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,14 @@
+[Unit]
+Description=Create /var/swapfile (idempotent)
+DefaultDependencies=no
+ConditionPathExists=!/var/swapfile.ready
+RequiresMountsFor=/var
+After=local-fs.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/bin/fallocate -l 2G /var/swapfile
+ExecStart=/usr/bin/chmod 600 /var/swapfile
+ExecStart=/usr/sbin/mkswap /var/swapfile
+ExecStart=/usr/bin/touch /var/swapfile.ready

@@ -1,0 +1,11 @@
+[Unit]
+Description=Swap file /var/swapfile
+Requires=mkswap-var-swapfile.service
+After=mkswap-var-swapfile.service
+
+[Swap]
+What=/var/swapfile
+Priority=-2
+
+[Install]
+WantedBy=swap.target

@@ -1,0 +1,28 @@
+[Unit]
+Description=Immich Server
+After=immich-db.service immich-redis.service immich-ml.service rclone-wasabi-immich.service
+Wants=immich-db.service immich-redis.service immich-ml.service rclone-wasabi-immich.service
+StartLimitIntervalSec=0
+
+[Container]
+Image=ghcr.io/immich-app/immich-server:release
+ContainerName=immich-server
+Network=immich.network
+PublishPort=2283:2283
+Volume=/mnt/wasabi-immich:/data:rslave
+Volume=/var/srv/immich/data/backups:/data/backups:Z
+Volume=/var/srv/immich/data/encoded-video:/data/encoded-video:Z
+Volume=/var/srv/immich/data/thumbs:/data/thumbs:Z
+EnvironmentFile=/etc/immich/server.env
+Environment=DB_HOSTNAME=immich-db
+Environment=DB_USERNAME=postgres
+Environment=DB_DATABASE_NAME=immich
+Environment=REDIS_HOSTNAME=immich-redis
+AutoUpdate=registry
+
+[Service]
+Restart=always
+TimeoutStartSec=600
+
+[Install]
+WantedBy=multi-user.target

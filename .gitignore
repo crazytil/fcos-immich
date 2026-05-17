@@ -1,0 +1,24 @@
+# macOS
+.DS_Store
+
+# Local Claude state
+.claude/
+.claude-flow/
+docs/superpowers/
+
+# Build artifacts
+config.ign
+efi_vars.fd
+
+# VM disk images (large, downloaded separately)
+*.qcow2
+
+# OCI deploy temp
+/tmp/ud.b64
+/tmp/meta.json
+
+# Secrets (real values; commit only .example variants)
+files/db.env
+files/server.env
+files/rclone.conf
+files/newt.env

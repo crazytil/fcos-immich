@@ -1,0 +1,198 @@
+variant: fcos
+version: 1.5.0
+
+passwd:
+  users:
+    - name: core
+      ssh_authorized_keys:
+        - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGaU7IBOELxpGNJiXwKkzfwTW6MfogtJDnWuV30TeMDo
+
+systemd:
+  units:
+    - name: zram-setup.service
+      enabled: true
+    - name: var-swapfile.swap
+      enabled: true
+    - name: podman-auto-update.timer
+      enabled: true
+    - name: fcos-backup.timer
+      enabled: true
+    - name: storj-mirror.timer
+      enabled: true
+    - name: storj-prune.timer
+      enabled: true
+
+storage:
+  links:
+    - path: /etc/localtime
+      target: /usr/share/zoneinfo/Australia/Brisbane
+      overwrite: true
+
+  directories:
+    - path: /var/srv/immich/db
+      mode: 0700
+    - path: /var/srv/immich/ml-cache
+      mode: 0755
+    - path: /var/srv/immich/data/thumbs
+      mode: 0755
+    - path: /var/srv/immich/data/encoded-video
+      mode: 0755
+    - path: /var/srv/immich/data/backups
+      mode: 0755
+    - path: /etc/immich
+      mode: 0700
+    - path: /etc/rclone
+      mode: 0700
+    - path: /etc/newt
+      mode: 0700
+    - path: /mnt/wasabi-immich
+      mode: 0755
+    - path: /mnt/wasabi-immich-backup
+      mode: 0755
+    - path: /var/cache/rclone-wasabi
+      mode: 0755
+    - path: /var/cache/rclone-wasabi-backup
+      mode: 0755
+
+
+  files:
+    - path: /etc/hostname
+      mode: 0644
+      overwrite: true
+      contents:
+        inline: fcos-immich
+
+    - path: /etc/tmpfiles.d/zincati-public.conf
+      mode: 0644
+      contents:
+        local: files/zincati-public.conf
+
+    - path: /etc/zincati/config.d/90-disable-updates.toml
+      mode: 0644
+      contents:
+        local: files/disable-updates.toml
+
+    - path: /etc/immich/db.env
+      mode: 0600
+      contents:
+        local: files/db.env
+
+    - path: /etc/immich/server.env
+      mode: 0600
+      contents:
+        local: files/server.env
+
+    - path: /etc/rclone/rclone.conf
+      mode: 0600
+      contents:
+        local: files/rclone.conf
+
+    - path: /etc/newt/newt.env
+      mode: 0600
+      contents:
+        local: files/newt.env
+
+    - path: /etc/containers/systemd/immich.network
+      mode: 0644
+      contents:
+        local: files/immich.network
+
+    - path: /etc/containers/systemd/immich-db.container
+      mode: 0644
+      contents:
+        local: files/immich-db.container
+
+    - path: /etc/containers/systemd/immich-redis.container
+      mode: 0644
+      contents:
+        local: files/immich-redis.container
+
+    - path: /etc/containers/systemd/immich-ml.container
+      mode: 0644
+      contents:
+        local: files/immich-ml.container
+
+    - path: /etc/containers/systemd/immich-server.container
+      mode: 0644
+      contents:
+        local: files/immich-server.container
+
+    - path: /etc/containers/systemd/rclone-wasabi-immich.container
+      mode: 0644
+      contents:
+        local: files/rclone-wasabi-immich.container
+
+    - path: /etc/containers/systemd/rclone-wasabi-immich-backup.container
+      mode: 0644
+      contents:
+        local: files/rclone-wasabi-immich-backup.container
+
+    - path: /etc/containers/systemd/newt.container
+      mode: 0644
+      contents:
+        local: files/newt.container
+
+    - path: /usr/local/bin/fcos-backup.sh
+      mode: 0755
+      contents:
+        local: files/fcos-backup.sh
+
+    - path: /etc/systemd/system/fcos-backup.service
+      mode: 0644
+      contents:
+        local: files/fcos-backup.service
+
+    - path: /etc/systemd/system/fcos-backup.timer
+      mode: 0644
+      contents:
+        local: files/fcos-backup.timer
+
+    - path: /usr/local/bin/storj-mirror.sh
+      mode: 0755
+      contents:
+        local: files/storj-mirror.sh
+
+    - path: /etc/systemd/system/storj-mirror.service
+      mode: 0644
+      contents:
+        local: files/storj-mirror.service
+
+    - path: /etc/systemd/system/storj-mirror.timer
+      mode: 0644
+      contents:
+        local: files/storj-mirror.timer
+
+    - path: /usr/local/bin/storj-prune.sh
+      mode: 0755
+      contents:
+        local: files/storj-prune.sh
+
+    - path: /etc/systemd/system/storj-prune.service
+      mode: 0644
+      contents:
+        local: files/storj-prune.service
+
+    - path: /etc/systemd/system/storj-prune.timer
+      mode: 0644
+      contents:
+        local: files/storj-prune.timer
+
+    - path: /etc/systemd/system/zram-setup.service
+      mode: 0644
+      contents:
+        local: files/zram-setup.service
+
+    - path: /etc/sysctl.d/90-swap.conf
+      mode: 0644
+      contents:
+        local: files/swap-sysctl.conf
+
+    - path: /etc/systemd/system/mkswap-var-swapfile.service
+      mode: 0644
+      contents:
+        local: files/mkswap-var-swapfile.service
+
+    - path: /etc/systemd/system/var-swapfile.swap
+      mode: 0644
+      contents:
+        local: files/var-swapfile.swap

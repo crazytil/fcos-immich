@@ -1,0 +1,11 @@
+[Unit]
+Description=Daily Storj mirror at 04:00 local
+
+[Timer]
+OnCalendar=*-*-* 04:00:00
+Persistent=true
+RandomizedDelaySec=600
+Unit=storj-mirror.service
+
+[Install]
+WantedBy=timers.target
