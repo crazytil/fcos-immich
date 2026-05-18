@@ -4,13 +4,16 @@ Reproducible **Fedora CoreOS + Immich** appliance. Photos live in S3 (Wasabi) vi
 
 ```
                  ┌────────────────────── FCOS aarch64 VM ──────────────────────┐
-                 │   immich-server :2283  ◄─── newt tunnel (optional)          │
+                 │   caddy :80/:443  ── reverse proxy + Let's Encrypt TLS      │
                  │     │                                                        │
-                 │     ├─ immich-db  (postgres + vectorchord, digest-pinned)    │
-                 │     ├─ immich-redis (valkey)                                 │
-                 │     ├─ immich-ml                                             │
-                 │     └─ /data ─── rclone FUSE ─── Wasabi S3 (primary)         │
+                 │     └─► immich-server :2283 (loopback only)                  │
+                 │           │                                                  │
+                 │           ├─ immich-db  (postgres + vectorchord, pinned)     │
+                 │           ├─ immich-redis (valkey)                           │
+                 │           ├─ immich-ml                                       │
+                 │           └─ /data ─── rclone FUSE ─── Wasabi S3 (primary)   │
                  │                                                              │
+                 │   newt tunnel (optional) — independent path via host net     │
                  │   nightly: pg_dump → wasabi-backup → rclone sync → Storj     │
                  └──────────────────────────────────────────────────────────────┘
 ```
@@ -23,10 +26,11 @@ git clone https://github.com/crazytil/fcos-immich.git
 cd fcos-immich
 
 # 2. Fill in secrets (the *.example files are committed; real ones are gitignored)
-for f in db.env server.env rclone.conf newt.env; do
+for f in db.env server.env rclone.conf newt.env Caddyfile; do
   cp "files/$f.example" "files/$f"
 done
 # Edit each file. POSTGRES_PASSWORD in db.env must match DB_PASSWORD in server.env.
+# Caddyfile sets ACME email + public hostname for the reverse proxy.
 # newt.env is only needed if you want a Pangolin tunnel; otherwise leave defaults.
 
 # 3. Replace the SSH key in config.bu (passwd.users[0].ssh_authorized_keys)

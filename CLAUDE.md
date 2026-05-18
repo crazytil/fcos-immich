@@ -31,13 +31,15 @@ fcos-immich/
     server.env / server.env.example        # Immich DB_PASSWORD + TZ
     rclone.conf / rclone.conf.example      # Wasabi + Storj S3 creds
     newt.env / newt.env.example            # Pangolin/Newt tunnel creds (EnvironmentFile for newt.container)
+    Caddyfile / Caddyfile.example          # Caddy reverse-proxy config (ACME email + hostname)
 
     # --- container Quadlets ---
     immich.network                         # podman network
     immich-db.container                    # postgres (vectorchord, digest-pinned)
     immich-redis.container                 # valkey:9 (digest-pinned)
     immich-ml.container                    # ML (face/object)
-    immich-server.container                # web/API, port 2283
+    immich-server.container                # web/API, 2283 bound to loopback only
+    caddy.container                        # reverse proxy :80/:443, Let's Encrypt auto-TLS
     rclone-wasabi-immich.container         # FUSE mount of wasabi-immich → /mnt/wasabi-immich
     rclone-wasabi-immich-backup.container  # FUSE mount of wasabi-immich-backup
     newt.container                         # Pangolin tunnel (no inline secret; reads /etc/newt/newt.env)
@@ -97,7 +99,7 @@ Fallbacks:
 - **FCOS** — tracks `stable` stream. Zincati enabled, periodic 03:00 + 120-min reboot window (`files/zincati-updates.toml`). Earlier 44.x aarch64 stable had a polkit regression that broke zincati's rpm-ostree D-Bus calls; verify the current stable boots cleanly before relying on auto-reboot on production hosts.
 - **Postgres** — digest-pinned (vectorchord 0.4.3). No `AutoUpdate=` — bumping the digest is a manual Quadlet edit. Skipping the auto-update line avoids podman-auto-update's "tag and digest both specified" error (see `docs/troubleshooting.md`).
 - **Valkey** — digest-pinned, same treatment as Postgres.
-- **Immich server / Immich ML / rclone / newt** — floating tags (`:release`, `:latest`) with `AutoUpdate=registry`. `podman-auto-update.timer` pulls newer registry digests nightly.
+- **Immich server / Immich ML / rclone / newt / caddy** — floating tags (`:release`, `:latest`, `:2-alpine`) with `AutoUpdate=registry`. `podman-auto-update.timer` pulls newer registry digests nightly.
 
 Get latest stable: `curl -s https://builds.coreos.fedoraproject.org/streams/stable.json | jq -r '.architectures.aarch64.artifacts.qemu.release'`
 
@@ -110,7 +112,8 @@ network-online.target
   ├─ immich-db.service                    (postgres on /var/srv/immich/db)
   ├─ immich-redis.service                 (valkey)
   ├─ immich-ml.service                    (gunicorn :3003)
-  ├─ immich-server.service                (publishes 2283, /data = FUSE mount)
+  ├─ immich-server.service                (127.0.0.1:2283, /data = FUSE mount, trusts RFC1918 proxies)
+  ├─ caddy.service                        (reverse proxy :80/:443, ACME via HTTP-01, certs in /var/srv/caddy/data)
   └─ newt.service                         (Pangolin tunnel, host network, uses podman socket)
 
 Timers (one-shot units fired on schedule):
@@ -141,10 +144,10 @@ Server uses `Wants=` (not `Requires=`) so rclone hiccup doesn't permanently fail
 
 ## Secrets
 
-`files/db.env`, `files/server.env`, `files/rclone.conf`, `files/newt.env` contain real credentials. These four files are **gitignored**; only their `.example` variants are committed. On a fresh clone:
+`files/db.env`, `files/server.env`, `files/rclone.conf`, `files/newt.env`, `files/Caddyfile` contain environment-specific values. These files are **gitignored**; only their `.example` variants are committed. `Caddyfile` is not strictly a secret but pins the public hostname + ACME email so it stays out of git. On a fresh clone:
 
 ```bash
-for f in db.env server.env rclone.conf newt.env; do
+for f in db.env server.env rclone.conf newt.env Caddyfile; do
   cp "files/$f.example" "files/$f"
 done
 # edit each one, then:
@@ -181,7 +184,7 @@ Same Butane → AWS via EC2 user-data, GCP via instance metadata, Hetzner via `-
 ## Things to harden before prod
 
 1. **Secrets** — current state: gitignored real files + committed `.example` templates. Next: encrypt env files (sops + age), decrypt at boot via systemd-creds. Rotate `NEWT_SECRET` (was committed inline in a previous revision; assume burned).
-2. **TLS** — Caddy Quadlet in front, ACME via DNS challenge, drop `PublishPort=2283:2283`. Especially urgent if OCI public IP stays open.
+2. **TLS** — done: Caddy Quadlet terminates TLS on :443, HTTP-01 ACME via Let's Encrypt. `immich-server` published only to `127.0.0.1:2283` so loopback (newt) + the immich podman network (caddy) can reach it; external direct hits to :2283 blocked at the host. To harden further: switch to DNS-01 challenge so port 80 can be closed.
 3. **Backup encryption** — `fcos-backup.sh` tars `/etc/immich`, `/etc/rclone`, `/etc/containers/systemd` (incl. `newt.container`) into S3. Encrypt the tarball with `age` before upload.
 4. **Backup authority** — own `pg_dump` Quadlet/timer instead of trusting Immich's internal dump (see Service graph note).
 5. **Resource limits** — `Memory=` / `CPUQuota=` per container. ML eats ~3 GB of 6 GB host → OOM picks Postgres under pressure.

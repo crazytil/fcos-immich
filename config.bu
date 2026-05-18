@@ -45,6 +45,12 @@ storage:
       mode: 0700
     - path: /etc/newt
       mode: 0700
+    - path: /etc/caddy
+      mode: 0755
+    - path: /var/srv/caddy/data
+      mode: 0700
+    - path: /var/srv/caddy/config
+      mode: 0700
     - path: /mnt/wasabi-immich
       mode: 0755
     - path: /mnt/wasabi-immich-backup
@@ -92,6 +98,11 @@ storage:
       contents:
         local: files/newt.env
 
+    - path: /etc/caddy/Caddyfile
+      mode: 0644
+      contents:
+        local: files/Caddyfile
+
     - path: /etc/containers/systemd/immich.network
       mode: 0644
       contents:
@@ -131,6 +142,11 @@ storage:
       mode: 0644
       contents:
         local: files/newt.container
+
+    - path: /etc/containers/systemd/caddy.container
+      mode: 0644
+      contents:
+        local: files/caddy.container
 
     - path: /usr/local/bin/fcos-backup.sh
       mode: 0755
