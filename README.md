@@ -65,7 +65,10 @@ cp files/newt.env.example    files/newt.env
 
 # 2. Replace SSH key in config.bu (passwd.users[0].ssh_authorized_keys)
 
-# 3. Download the FCOS aarch64 stable QEMU image (pinned to 43.x; 44 has a polkit regression)
+# 3. Download the FCOS aarch64 stable QEMU image
+#    (Zincati is enabled in the Butane config and will auto-upgrade past this
+#     base image on a 03:00 + 120-min window. See CLAUDE.md for the 44.x
+#     aarch64 polkit caveat — verify the current stable boots cleanly.)
 source env.sh
 coreos-installer download -s stable -p qemu -f qcow2.xz --decompress -a aarch64
 mv fedora-coreos-*-qemu.aarch64.qcow2 pristine.qcow2
@@ -119,7 +122,7 @@ The script regenerates Ignition from `config.bu`, imports the qcow2 as a custom 
 
 | Task | How |
 |------|-----|
-| Update OS                  | Zincati (when enabled — currently disabled to avoid an FCOS 44 polkit regression) |
+| Update OS                  | Zincati enabled, `strategy=periodic` 03:00 + 120-min window (`files/zincati-updates.toml`). Watch for the 44.x polkit regression on aarch64 — see `CLAUDE.md`. |
 | Update containers          | `podman-auto-update.timer` runs nightly. `:release`-tagged images update silently. |
 | Force update check         | `sudo systemctl restart zincati` |
 | Inspect FUSE mount         | `mount \| grep wasabi` &nbsp;·&nbsp; `sudo podman exec immich-server ls -la /data` |

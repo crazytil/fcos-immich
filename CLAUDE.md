@@ -46,7 +46,7 @@ fcos-immich/
 
     # --- misc config ---
     zincati-public.conf                    # tmpfiles fix for zincati socket dir
-    disable-updates.toml                   # zincati on/off toggle
+    zincati-updates.toml                   # zincati config: enabled, periodic 03:00 + 120 min
 ```
 
 ## Commands (after `source env.sh`)
@@ -87,7 +87,7 @@ Fallbacks:
 
 ## Image versions
 
-- FCOS pinned to **43.20260413.3.2** aarch64 stable (44.x had polkit regression)
+- FCOS tracks **stable** stream — Zincati is enabled with a periodic 03:00 + 120-min reboot window (`files/zincati-updates.toml`). Earlier 44.x aarch64 stable had a polkit regression that broke zincati's rpm-ostree D-Bus calls; verify the current stable boots cleanly before relying on auto-reboot on production hosts.
 - Postgres digest-pinned to vectorchord0.4.3
 - Valkey digest-pinned to v9
 - Immich server/ML use `:release` tag with `AutoUpdate=registry`
@@ -129,7 +129,7 @@ Server uses `Wants=` (not `Requires=`) so rclone hiccup doesn't permanently fail
 | **rclone FUSE in container** | Needs `AddDevice=/dev/fuse`, `AddCapability=SYS_ADMIN`, `SecurityLabelDisable=true`, mount as `:rshared`, plus `--allow-non-empty` (bind-mount makes target appear non-empty). |
 | **Stale FUSE mount after restart** | `ExecStartPre=-/usr/bin/umount -lR /mnt/wasabi-immich` before each start. |
 | **Zincati `/run/zincati/public` missing** | tmpfiles.d entry creates it (`zincati-public.conf`). Otherwise zincati fails to bind metrics socket. |
-| **Polkit on FCOS 44 aarch64** | "Lost the name PolicyKit1" loop kills zincati's rpm-ostree D-Bus calls. Workaround: stay on 43.x stable. |
+| **Polkit on FCOS 44 aarch64** | Earlier 44.x stable had a "Lost the name PolicyKit1" loop that killed zincati's rpm-ostree D-Bus calls. If you see it, set `enabled = false` in `zincati-updates.toml` and pin to a known-good qcow2 until upstream ships a fix. |
 | **Ignition runs once per disk** | Day-2 Butane changes require `fcos-reset && fcos-boot`. No way to re-run on existing disk. |
 | **`/mnt` symlink** | FCOS symlinks `/mnt` → `/var/mnt`. `mount` shows `/var/mnt/wasabi-immich`. Both paths valid. |
 
@@ -164,11 +164,11 @@ Same Butane → AWS via EC2 user-data, GCP via instance metadata, Hetzner via `-
 
 | Task | How |
 |------|-----|
-| Update OS | Zincati auto (when enabled), `strategy=immediate` reboots when ready |
+| Update OS | Zincati enabled, `strategy=periodic` — reboots inside 03:00 + 120-min window (`files/zincati-updates.toml`) |
 | Update containers | `podman-auto-update.timer` runs daily, restarts containers with newer registry digest |
 | Inspect mount | `mount \| grep wasabi`, `sudo podman exec immich-server ls -la /data` |
 | Force update check | `sudo systemctl restart zincati` |
-| Skip update | drop `/etc/zincati/config.d/90-disable-updates.toml` with `enabled = false` |
+| Pause OS updates | edit `/etc/zincati/config.d/90-zincati-updates.toml` → `enabled = false`, `sudo systemctl restart zincati` |
 | Force rclone reload | `sudo systemctl restart rclone-wasabi && sleep 5 && sudo systemctl restart immich-server` |
 | Reach Immich | `http://<vm-ip>:2283` from LAN |
 
@@ -182,5 +182,5 @@ Same Butane → AWS via EC2 user-data, GCP via instance metadata, Hetzner via `-
 6. **Image digests** — `immich-server:release`, `immich-machine-learning:release`, `rclone:latest` are floating tags. Renovate-PR new digests; drop `AutoUpdate=registry` on already-pinned images (db, valkey) where it's a no-op.
 7. **Storj sync safety** — `storj-mirror.sh` uses `sync` to bucket root with `--exclude` for sibling prefixes. A typo deletes Storj-side. Add `--max-delete 1000` cap.
 8. **Observability** — Vector Quadlet → Loki/SigNoz; node_exporter.
-9. **Update strategy** — `periodic` window or FleetLock for multi-node. (Zincati currently disabled to avoid FCOS 44 polkit regression.)
+9. **Update strategy** — currently Zincati `periodic` window 03:00 + 120 min, single-node. For multi-node, switch to FleetLock so peers don't reboot together.
 10. **Podman socket exposure** — `newt.container` bind-mounts `/run/podman/podman.sock` with `SecurityLabelDisable=true` → newt compromise = host compromise. Verify newt actually needs it, or isolate via rootless podman socket.

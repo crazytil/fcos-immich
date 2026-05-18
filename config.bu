@@ -67,10 +67,10 @@ storage:
       contents:
         local: files/zincati-public.conf
 
-    - path: /etc/zincati/config.d/90-disable-updates.toml
+    - path: /etc/zincati/config.d/90-zincati-updates.toml
       mode: 0644
       contents:
-        local: files/disable-updates.toml
+        local: files/zincati-updates.toml
 
     - path: /etc/immich/db.env
       mode: 0600
