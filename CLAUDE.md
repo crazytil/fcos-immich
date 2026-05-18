@@ -1,5 +1,7 @@
 # Fedora CoreOS lab — Immich on Wasabi S3
 
+> This file is the **operator handbook** — the source of truth for how this lab is wired up, what each piece does, and how to keep it running. It also doubles as project memory for Claude Code (the filename is convention). For a higher-level overview see [`README.md`](README.md); for deploy walkthroughs see [`docs/`](docs/).
+
 Local FCOS aarch64 VM running Immich. Photos stored in Wasabi S3 via rclone FUSE mount. Butane = source of truth.
 
 ## Layout
@@ -8,6 +10,7 @@ Local FCOS aarch64 VM running Immich. Photos stored in Wasabi S3 via rclone FUSE
 fcos-immich/
   README.md            # high-level: what it is, bootstrap, deploy paths
   CLAUDE.md            # this file: operator handbook, quirks, hardening
+  LICENSE              # MIT
   .gitignore           # ignores qcow2/.ign/efi_vars/.env/rclone.conf/newt.env
   config.bu            # Butane source — single config of record
   config.ign           # transpiled Ignition (build artifact, gitignored)
@@ -17,6 +20,10 @@ fcos-immich/
   pristine.qcow2       # untouched FCOS disk; copied for each reset (gitignored)
   fedora-coreos-reset-qemu.aarch64.qcow2   # working disk (gitignored)
   efi_vars.fd          # UEFI vars (regenerated; gitignored)
+
+  docs/
+    deploy-oci.md      # step-by-step Oracle Cloud A1.Flex deploy walkthrough
+    troubleshooting.md # known issues + fixes (Ignition, FUSE, db init, zincati, …)
 
   files/               # referenced by config.bu via `local: files/...`
     # --- secrets: REAL values are gitignored; .example variants are committed ---
@@ -87,11 +94,10 @@ Fallbacks:
 
 ## Image versions
 
-- FCOS tracks **stable** stream — Zincati is enabled with a periodic 03:00 + 120-min reboot window (`files/zincati-updates.toml`). Earlier 44.x aarch64 stable had a polkit regression that broke zincati's rpm-ostree D-Bus calls; verify the current stable boots cleanly before relying on auto-reboot on production hosts.
-- Postgres digest-pinned to vectorchord0.4.3
-- Valkey digest-pinned to v9
-- Immich server/ML use `:release` tag with `AutoUpdate=registry`
-- `podman-auto-update.timer` enabled via Butane
+- **FCOS** — tracks `stable` stream. Zincati enabled, periodic 03:00 + 120-min reboot window (`files/zincati-updates.toml`). Earlier 44.x aarch64 stable had a polkit regression that broke zincati's rpm-ostree D-Bus calls; verify the current stable boots cleanly before relying on auto-reboot on production hosts.
+- **Postgres** — digest-pinned (vectorchord 0.4.3). No `AutoUpdate=` — bumping the digest is a manual Quadlet edit. Skipping the auto-update line avoids podman-auto-update's "tag and digest both specified" error (see `docs/troubleshooting.md`).
+- **Valkey** — digest-pinned, same treatment as Postgres.
+- **Immich server / Immich ML / rclone / newt** — floating tags (`:release`, `:latest`) with `AutoUpdate=registry`. `podman-auto-update.timer` pulls newer registry digests nightly.
 
 Get latest stable: `curl -s https://builds.coreos.fedoraproject.org/streams/stable.json | jq -r '.architectures.aarch64.artifacts.qemu.release'`
 
@@ -179,7 +185,7 @@ Same Butane → AWS via EC2 user-data, GCP via instance metadata, Hetzner via `-
 3. **Backup encryption** — `fcos-backup.sh` tars `/etc/immich`, `/etc/rclone`, `/etc/containers/systemd` (incl. `newt.container`) into S3. Encrypt the tarball with `age` before upload.
 4. **Backup authority** — own `pg_dump` Quadlet/timer instead of trusting Immich's internal dump (see Service graph note).
 5. **Resource limits** — `Memory=` / `CPUQuota=` per container. ML eats ~3 GB of 6 GB host → OOM picks Postgres under pressure.
-6. **Image digests** — `immich-server:release`, `immich-machine-learning:release`, `rclone:latest` are floating tags. Renovate-PR new digests; drop `AutoUpdate=registry` on already-pinned images (db, valkey) where it's a no-op.
+6. **Image digests** — `immich-server:release`, `immich-machine-learning:release`, `rclone:latest`, `newt:latest` are floating tags. Renovate-PR them to digests when stability matters more than fresh patches. db + valkey already digest-pinned, `AutoUpdate=registry` dropped to silence the "tag+digest unsupported" auto-update error.
 7. **Storj sync safety** — `storj-mirror.sh` uses `sync` to bucket root with `--exclude` for sibling prefixes. A typo deletes Storj-side. Add `--max-delete 1000` cap.
 8. **Observability** — Vector Quadlet → Loki/SigNoz; node_exporter.
 9. **Update strategy** — currently Zincati `periodic` window 03:00 + 120 min, single-node. For multi-node, switch to FleetLock so peers don't reboot together.
