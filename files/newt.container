@@ -11,6 +11,7 @@ EnvironmentFile=/etc/newt/newt.env
 Environment=DOCKER_SOCKET=/var/run/docker.sock
 Volume=/run/podman/podman.sock:/var/run/docker.sock
 SecurityLabelDisable=true
+AutoUpdate=registry
 
 [Service]
 Restart=always
