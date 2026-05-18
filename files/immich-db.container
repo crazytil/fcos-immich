@@ -14,7 +14,6 @@ Environment=POSTGRES_DB=immich
 HealthCmd=pg_isready -U postgres
 HealthInterval=10s
 HealthRetries=5
-AutoUpdate=registry
 
 [Service]
 Restart=always
