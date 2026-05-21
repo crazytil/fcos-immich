@@ -1,6 +1,6 @@
 # fcos-immich
 
-Reproducible **Fedora CoreOS + Immich** appliance. Photos live in S3 (Wasabi) via an rclone FUSE mount; nightly mirror to Storj. One Butane config boots locally under QEMU or on Oracle Cloud A1.Flex unchanged — only the Ignition delivery differs.
+Reproducible **Fedora CoreOS + Immich** appliance. Photos live in S3 (Cloudflare R2) via an rclone FUSE mount; nightly mirror to Storj. One Butane config boots locally under QEMU or on Oracle Cloud A1.Flex unchanged — only the Ignition delivery differs.
 
 ```
                  ┌────────────────────── FCOS aarch64 VM ──────────────────────┐
@@ -11,10 +11,10 @@ Reproducible **Fedora CoreOS + Immich** appliance. Photos live in S3 (Wasabi) vi
                  │           ├─ immich-db  (postgres + vectorchord, pinned)     │
                  │           ├─ immich-redis (valkey)                           │
                  │           ├─ immich-ml                                       │
-                 │           └─ /data ─── rclone FUSE ─── Wasabi S3 (primary)   │
+                 │           └─ /data ─── rclone FUSE ─── Cloudflare R2 (primary)│
                  │                                                              │
                  │   newt tunnel (optional) — independent path via host net     │
-                 │   nightly: pg_dump → wasabi-backup → rclone sync → Storj     │
+                 │   nightly: pg_dump → R2 backup bucket → rclone sync → Storj  │
                  └──────────────────────────────────────────────────────────────┘
 ```
 
@@ -65,7 +65,7 @@ Full operator handbook is in [`CLAUDE.md`](CLAUDE.md) (host quirks, networking, 
 
 ```bash
 # Find what's running
-sudo systemctl status immich-server rclone-wasabi-immich
+sudo systemctl status immich-server rclone-immich-photos
 
 # Force an OS update check
 sudo systemctl restart zincati
@@ -74,7 +74,7 @@ sudo systemctl restart zincati
 sudo $EDITOR /etc/containers/systemd/<name>.container
 sudo systemctl daemon-reload && sudo systemctl restart <name>
 
-# Restore from backup (manually pull from wasabi-immich-backup/db/{daily,weekly})
+# Restore from backup (manually pull from immich-backup/db/{daily,weekly})
 ```
 
 ## Repo layout

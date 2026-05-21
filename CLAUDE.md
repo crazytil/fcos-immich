@@ -1,8 +1,8 @@
-# Fedora CoreOS lab — Immich on Wasabi S3
+# Fedora CoreOS lab — Immich on Cloudflare R2
 
 > This file is the **operator handbook** — the source of truth for how this lab is wired up, what each piece does, and how to keep it running. It also doubles as project memory for Claude Code (the filename is convention). For a higher-level overview see [`README.md`](README.md); for deploy walkthroughs see [`docs/`](docs/).
 
-Local FCOS aarch64 VM running Immich. Photos stored in Wasabi S3 via rclone FUSE mount. Butane = source of truth.
+Local FCOS aarch64 VM running Immich. Photos stored in Cloudflare R2 (S3-compatible) via rclone FUSE mount. Butane = source of truth.
 
 ## Layout
 
@@ -29,7 +29,7 @@ fcos-immich/
     # --- secrets: REAL values are gitignored; .example variants are committed ---
     db.env / db.env.example                # postgres user + password
     server.env / server.env.example        # Immich DB_PASSWORD + TZ
-    rclone.conf / rclone.conf.example      # Wasabi + Storj S3 creds
+    rclone.conf / rclone.conf.example      # Cloudflare R2 + Storj S3 creds
     newt.env / newt.env.example            # Pangolin/Newt tunnel creds (EnvironmentFile for newt.container)
     Caddyfile / Caddyfile.example          # Caddy reverse-proxy config (ACME email + hostname)
 
@@ -40,12 +40,12 @@ fcos-immich/
     immich-ml.container                    # ML (face/object)
     immich-server.container                # web/API, 2283 bound to loopback only
     caddy.container                        # reverse proxy :80/:443, Let's Encrypt auto-TLS
-    rclone-wasabi-immich.container         # FUSE mount of wasabi-immich → /mnt/wasabi-immich
-    rclone-wasabi-immich-backup.container  # FUSE mount of wasabi-immich-backup
+    rclone-immich-photos.container         # FUSE mount s3:photos-immich → /mnt/immich-photos
+    rclone-immich-backup.container         # FUSE mount s3:backup-immich → /mnt/immich-backup
     newt.container                         # Pangolin tunnel (no inline secret; reads /etc/newt/newt.env)
 
     # --- systemd units / scripts ---
-    fcos-backup.{sh,service,timer}         # nightly DB+config snapshot to wasabi-immich-backup, mirror to Storj
+    fcos-backup.{sh,service,timer}         # nightly DB+config snapshot to immich-backup bucket, mirror to Storj
     storj-mirror.{sh,service,timer}        # rclone sync library/profile → Storj
     storj-prune.{sh,service,timer}         # delete Storj object versions older than 90d
     zram-setup.service                     # zram0 swap, zstd, 3G
@@ -107,18 +107,18 @@ Get latest stable: `curl -s https://builds.coreos.fedoraproject.org/streams/stab
 
 ```
 network-online.target
-  ├─ rclone-wasabi-immich.service         (FUSE /mnt/wasabi-immich → Wasabi photos bucket)
-  ├─ rclone-wasabi-immich-backup.service  (FUSE /mnt/wasabi-immich-backup → Wasabi backup bucket)
+  ├─ rclone-immich-photos.service         (FUSE /mnt/immich-photos → R2 photos-immich bucket)
+  ├─ rclone-immich-backup.service         (FUSE /mnt/immich-backup → R2 backup-immich bucket)
   ├─ immich-db.service                    (postgres on /var/srv/immich/db)
   ├─ immich-redis.service                 (valkey)
   ├─ immich-ml.service                    (gunicorn :3003)
-  ├─ immich-server.service                (127.0.0.1:2283, /data = FUSE mount, trusts RFC1918 proxies)
+  ├─ immich-server.service                (127.0.0.1:2283, /data = /mnt/immich-photos FUSE, trusts RFC1918 proxies)
   ├─ caddy.service                        (reverse proxy :80/:443, ACME via HTTP-01, certs in /var/srv/caddy/data)
   └─ newt.service                         (Pangolin tunnel, host network, uses podman socket)
 
 Timers (one-shot units fired on schedule):
   podman-auto-update.timer  → pulls newer registry digests, restarts updated containers
-  fcos-backup.timer         → fcos-backup.sh: snapshot DB+config → wasabi-immich-backup, mirror to Storj
+  fcos-backup.timer         → fcos-backup.sh: snapshot DB+config → R2 backup-immich, mirror to Storj
   storj-mirror.timer        → storj-mirror.sh: rclone sync library + profile to Storj
   storj-prune.timer         → storj-prune.sh: delete Storj object versions older than 90d
 ```
@@ -136,11 +136,11 @@ Server uses `Wants=` (not `Requires=`) so rclone hiccup doesn't permanently fail
 | **UTM sandbox** | App Sandbox blocks reading config.ign from `~/fcos`. Why we use standalone qemu instead. |
 | **brew reinstall qemu** | Resets signing — re-add `com.apple.security.hypervisor` only (not vm.networking, which AMFI rejects). |
 | **rclone FUSE in container** | Needs `AddDevice=/dev/fuse`, `AddCapability=SYS_ADMIN`, `SecurityLabelDisable=true`, mount as `:rshared`, plus `--allow-non-empty` (bind-mount makes target appear non-empty). |
-| **Stale FUSE mount after restart** | `ExecStartPre=-/usr/bin/umount -lR /mnt/wasabi-immich` before each start. |
+| **Stale FUSE mount after restart** | `ExecStartPre=-/usr/bin/umount -lR /mnt/immich-photos` before each start. |
 | **Zincati `/run/zincati/public` missing** | tmpfiles.d entry creates it (`zincati-public.conf`). Otherwise zincati fails to bind metrics socket. |
 | **Polkit on FCOS 44 aarch64** | Earlier 44.x stable had a "Lost the name PolicyKit1" loop that killed zincati's rpm-ostree D-Bus calls. If you see it, set `enabled = false` in `zincati-updates.toml` and pin to a known-good qcow2 until upstream ships a fix. |
 | **Ignition runs once per disk** | Day-2 Butane changes require `fcos-reset && fcos-boot`. No way to re-run on existing disk. |
-| **`/mnt` symlink** | FCOS symlinks `/mnt` → `/var/mnt`. `mount` shows `/var/mnt/wasabi-immich`. Both paths valid. |
+| **`/mnt` symlink** | FCOS symlinks `/mnt` → `/var/mnt`. `mount` shows `/var/mnt/immich-photos`. Both paths valid. |
 
 ## Secrets
 
@@ -175,10 +175,10 @@ Same Butane → AWS via EC2 user-data, GCP via instance metadata, Hetzner via `-
 |------|-----|
 | Update OS | Zincati enabled, `strategy=periodic` — reboots inside 03:00 + 120-min window (`files/zincati-updates.toml`) |
 | Update containers | `podman-auto-update.timer` runs daily, restarts containers with newer registry digest |
-| Inspect mount | `mount \| grep wasabi`, `sudo podman exec immich-server ls -la /data` |
+| Inspect mount | `mount \| grep immich-photos`, `sudo podman exec immich-server ls -la /data` |
 | Force update check | `sudo systemctl restart zincati` |
 | Pause OS updates | edit `/etc/zincati/config.d/90-zincati-updates.toml` → `enabled = false`, `sudo systemctl restart zincati` |
-| Force rclone reload | `sudo systemctl restart rclone-wasabi && sleep 5 && sudo systemctl restart immich-server` |
+| Force rclone reload | `sudo systemctl restart rclone-immich-photos && sleep 5 && sudo systemctl restart immich-server` |
 | Reach Immich | `http://<vm-ip>:2283` from LAN |
 
 ## Things to harden before prod

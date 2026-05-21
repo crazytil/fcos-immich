@@ -2,7 +2,7 @@
 set -euo pipefail
 
 SRC=/var/srv/immich/data/backups
-DST=/mnt/wasabi-immich-backup
+DST=/mnt/immich-backup
 DATE=$(date +%F)
 WEEK=$(date +%G-W%V)
 DOW=$(date +%u)

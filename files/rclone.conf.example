@@ -1,10 +1,14 @@
-[wasabi]
+[s3]
+# Swap providers by editing this block only. Examples:
+#   Cloudflare R2: provider = Cloudflare, endpoint = https://<account>.r2.cloudflarestorage.com
+#   Wasabi:        provider = Wasabi,     endpoint = s3.<region>.wasabisys.com, region = <region>
+#   Backblaze B2:  provider = Other,      endpoint = s3.<region>.backblazeb2.com
+#   AWS S3:        provider = AWS,        region  = <region> (no endpoint)
 type = s3
-provider = Wasabi
-access_key_id = REPLACE_WASABI_ACCESS_KEY
-secret_access_key = REPLACE_WASABI_SECRET_KEY
-endpoint = s3.ap-southeast-2.wasabisys.com
-region = ap-southeast-2
+provider = Cloudflare
+access_key_id = REPLACE_ACCESS_KEY
+secret_access_key = REPLACE_SECRET_KEY
+endpoint = https://REPLACE_ACCOUNT_ID.r2.cloudflarestorage.com
 directory_markers = true
 
 [storj]

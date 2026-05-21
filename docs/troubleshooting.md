@@ -27,19 +27,19 @@ Either pin to digest only (drop the tag) or drop `AutoUpdate=registry` from the 
 
 ## rclone FUSE mount won't come up
 
-**Symptom:** `immich-server` errors with "ENOENT /data/…", `mount | grep wasabi` returns nothing.
+**Symptom:** `immich-server` errors with "ENOENT /data/…", `mount | grep immich-photos` returns nothing.
 
 Common causes:
 
-1. **Stale mount left by a previous crash.** `rclone-wasabi-immich.service` has `ExecStartPre=-/usr/bin/umount -lR /mnt/wasabi-immich` to handle this; if it's missing, `sudo umount -lR /mnt/wasabi-immich && sudo systemctl restart rclone-wasabi-immich`.
+1. **Stale mount left by a previous crash.** `rclone-immich-photos.service` has `ExecStartPre=-/usr/bin/umount -lR /mnt/immich-photos` to handle this; if it's missing, `sudo umount -lR /mnt/immich-photos && sudo systemctl restart rclone-immich-photos`.
 2. **Missing FUSE caps.** Container needs `AddDevice=/dev/fuse`, `AddCapability=SYS_ADMIN`, `SecurityLabelDisable=true`. Lose any of these and rclone can't mount.
-3. **Bad rclone.conf.** `sudo podman exec rclone-wasabi-immich rclone --config /config/rclone.conf lsd wasabi:` should list buckets. If it errors, the config or credentials are wrong.
-4. **Wasabi outage or bucket gone.** `journalctl -u rclone-wasabi-immich -n 50` will say so.
+3. **Bad rclone.conf.** `sudo podman exec rclone-immich-photos rclone --config /config/rclone.conf lsd s3:` should list buckets. If it errors, the config or credentials are wrong.
+4. **R2 outage or bucket gone.** `journalctl -u rclone-immich-photos -n 50` will say so.
 
 After fixing rclone, restart Immich so it re-sees `/data`:
 
 ```bash
-sudo systemctl restart rclone-wasabi-immich
+sudo systemctl restart rclone-immich-photos
 sleep 5
 sudo systemctl restart immich-server
 ```
@@ -110,6 +110,6 @@ Re-source after editing `env.sh` itself.
 You can't SSH in, but the VM is otherwise fine.
 
 - **Local QEMU:** boot to serial console (`fcos-boot` shows it), `Ctrl-A X` exits. Edit `~core/.ssh/authorized_keys` from the console.
-- **OCI:** no serial console by default. Either (a) enable serial console in the instance settings, or (b) terminate + redeploy with a new key in `config.bu`. The DB volume gets wiped — restore from `wasabi-immich-backup/db/daily/`.
+- **OCI:** no serial console by default. Either (a) enable serial console in the instance settings, or (b) terminate + redeploy with a new key in `config.bu`. The DB volume gets wiped — restore from R2 `backup-immich/db/daily/`.
 
 Avoid this by adding a second recovery key to `config.bu` before first boot.

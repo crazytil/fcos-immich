@@ -1,7 +1,7 @@
 [Unit]
 Description=Immich Server
-After=immich-db.service immich-redis.service immich-ml.service rclone-wasabi-immich.service
-Wants=immich-db.service immich-redis.service immich-ml.service rclone-wasabi-immich.service
+After=immich-db.service immich-redis.service immich-ml.service rclone-immich-photos.service
+Wants=immich-db.service immich-redis.service immich-ml.service rclone-immich-photos.service
 StartLimitIntervalSec=0
 
 [Container]
@@ -9,7 +9,7 @@ Image=ghcr.io/immich-app/immich-server:release
 ContainerName=immich-server
 Network=immich.network
 PublishPort=127.0.0.1:2283:2283
-Volume=/mnt/wasabi-immich:/data:rslave
+Volume=/mnt/immich-photos:/data:rslave
 Volume=/var/srv/immich/data/backups:/data/backups:Z
 Volume=/var/srv/immich/data/encoded-video:/data/encoded-video:Z
 Volume=/var/srv/immich/data/thumbs:/data/thumbs:Z

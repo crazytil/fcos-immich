@@ -1,5 +1,5 @@
 [Unit]
-Description=Mirror wasabi-immich/library to Storj
+Description=Mirror immich photos library to Storj
 After=network-online.target
 Wants=network-online.target
 

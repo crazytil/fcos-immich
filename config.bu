@@ -51,13 +51,13 @@ storage:
       mode: 0700
     - path: /var/srv/caddy/config
       mode: 0700
-    - path: /mnt/wasabi-immich
+    - path: /mnt/immich-photos
       mode: 0755
-    - path: /mnt/wasabi-immich-backup
+    - path: /mnt/immich-backup
       mode: 0755
-    - path: /var/cache/rclone-wasabi
+    - path: /var/cache/rclone-photos
       mode: 0755
-    - path: /var/cache/rclone-wasabi-backup
+    - path: /var/cache/rclone-backup
       mode: 0755
 
 
@@ -128,15 +128,15 @@ storage:
       contents:
         local: files/immich-server.container
 
-    - path: /etc/containers/systemd/rclone-wasabi-immich.container
+    - path: /etc/containers/systemd/rclone-immich-photos.container
       mode: 0644
       contents:
-        local: files/rclone-wasabi-immich.container
+        local: files/rclone-immich-photos.container
 
-    - path: /etc/containers/systemd/rclone-wasabi-immich-backup.container
+    - path: /etc/containers/systemd/rclone-immich-backup.container
       mode: 0644
       contents:
-        local: files/rclone-wasabi-immich-backup.container
+        local: files/rclone-immich-backup.container
 
     - path: /etc/containers/systemd/newt.container
       mode: 0644

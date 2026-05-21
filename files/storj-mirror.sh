@@ -24,8 +24,8 @@ run_sync() {
 
 # library/ mirrors to bucket ROOT (Lana/, Tilian/, ...). Must exclude sibling
 # top-level prefixes that other jobs manage, or sync will wipe them.
-run_sync wasabi:wasabi-immich/library storj:immich library \
+run_sync s3:photos-immich/library storj:immich library \
   --exclude '/backup/**' \
   --exclude '/profile/**'
 
-run_sync wasabi:wasabi-immich/profile storj:immich/profile profile
+run_sync s3:photos-immich/profile storj:immich/profile profile
