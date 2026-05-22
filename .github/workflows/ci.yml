@@ -1,0 +1,57 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  butane:
+    name: Validate Butane config
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Stage example secrets
+        # Real secret files are gitignored; config.bu references them via
+        # `local: files/...`. Seed from the committed .example templates so
+        # the transpile can resolve every embedded file.
+        run: |
+          for f in db.env server.env rclone.conf newt.env Caddyfile; do
+            cp "files/$f.example" "files/$f"
+          done
+
+      - name: Transpile config.bu (strict)
+        run: |
+          docker run --rm -i -v "$PWD:/pwd" -w /pwd \
+            quay.io/coreos/butane:release \
+            --files-dir /pwd --strict < config.bu > config.ign
+
+      - name: Verify Ignition output
+        run: test -s config.ign && echo "config.ign generated ($(wc -c < config.ign) bytes)"
+
+  shellcheck:
+    name: ShellCheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ludeeus/action-shellcheck@master
+        with:
+          severity: error
+
+  secret-guard:
+    name: No tracked secrets
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Ensure real secret files are not committed
+        run: |
+          fail=0
+          for f in files/db.env files/server.env files/rclone.conf files/newt.env files/Caddyfile; do
+            if git ls-files --error-unmatch "$f" >/dev/null 2>&1; then
+              echo "::error file=$f::tracked secret file — must stay gitignored"
+              fail=1
+            fi
+          done
+          [ "$fail" -eq 0 ] && echo "OK — no real secret files tracked"
+          exit "$fail"
