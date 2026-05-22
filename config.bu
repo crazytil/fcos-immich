@@ -21,6 +21,8 @@ systemd:
       enabled: true
     - name: storj-prune.timer
       enabled: true
+    - name: azure-dr-snapshot.timer
+      enabled: true
 
 storage:
   links:
@@ -192,6 +194,21 @@ storage:
       mode: 0644
       contents:
         local: files/storj-prune.timer
+
+    - path: /usr/local/bin/azure-dr-snapshot.sh
+      mode: 0755
+      contents:
+        local: files/azure-dr-snapshot.sh
+
+    - path: /etc/systemd/system/azure-dr-snapshot.service
+      mode: 0644
+      contents:
+        local: files/azure-dr-snapshot.service
+
+    - path: /etc/systemd/system/azure-dr-snapshot.timer
+      mode: 0644
+      contents:
+        local: files/azure-dr-snapshot.timer
 
     - path: /etc/systemd/system/zram-setup.service
       mode: 0644

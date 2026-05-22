@@ -1,0 +1,11 @@
+[Unit]
+Description=Monthly Azure DR snapshot, 1st of month 05:00 local
+
+[Timer]
+OnCalendar=*-*-01 05:00:00
+Persistent=true
+RandomizedDelaySec=600
+Unit=azure-dr-snapshot.service
+
+[Install]
+WantedBy=timers.target

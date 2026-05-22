@@ -19,3 +19,10 @@ access_key_id = REPLACE_STORJ_ACCESS_KEY
 secret_access_key = REPLACE_STORJ_SECRET_KEY
 chunk_size = 64Mi
 upload_concurrency = 4
+
+[azure-dr]
+# Azure Blob DR target (Cool tier, copy-3). Get key:
+#   az storage account keys list -n fcosdr4a5282b9 -g fcos-dr-rg --query '[0].value' -o tsv
+type = azureblob
+account = fcosdr4a5282b9
+key = REPLACE_AZURE_STORAGE_KEY

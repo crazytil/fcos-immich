@@ -1,0 +1,9 @@
+[Unit]
+Description=Snapshot immich photos+db to Azure Blob (Cool tier, DR copy 3)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/azure-dr-snapshot.sh
+TimeoutStartSec=0
