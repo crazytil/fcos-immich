@@ -1,8 +1,8 @@
-# Fedora CoreOS lab — Immich on Wasabi S3
+# Fedora CoreOS lab — Immich on Cloudflare R2
 
 > This file is the **operator handbook** — the source of truth for how this lab is wired up, what each piece does, and how to keep it running. It also doubles as project memory for Claude Code (the filename is convention). For a higher-level overview see [`README.md`](README.md); for deploy walkthroughs see [`docs/`](docs/).
 
-Local FCOS aarch64 VM running Immich. Photos stored in Wasabi S3 via rclone FUSE mount. Butane = source of truth.
+Local FCOS aarch64 VM running Immich. Photos stored in Cloudflare R2 (S3-compatible) via rclone FUSE mount. Butane = source of truth.
 
 ## Layout
 
@@ -29,21 +29,23 @@ fcos-immich/
     # --- secrets: REAL values are gitignored; .example variants are committed ---
     db.env / db.env.example                # postgres user + password
     server.env / server.env.example        # Immich DB_PASSWORD + TZ
-    rclone.conf / rclone.conf.example      # Wasabi + Storj S3 creds
+    rclone.conf / rclone.conf.example      # Cloudflare R2 + Storj S3 creds
     newt.env / newt.env.example            # Pangolin/Newt tunnel creds (EnvironmentFile for newt.container)
+    Caddyfile / Caddyfile.example          # Caddy reverse-proxy config (ACME email + hostname)
 
     # --- container Quadlets ---
     immich.network                         # podman network
     immich-db.container                    # postgres (vectorchord, digest-pinned)
     immich-redis.container                 # valkey:9 (digest-pinned)
     immich-ml.container                    # ML (face/object)
-    immich-server.container                # web/API, port 2283
-    rclone-wasabi-immich.container         # FUSE mount of wasabi-immich → /mnt/wasabi-immich
-    rclone-wasabi-immich-backup.container  # FUSE mount of wasabi-immich-backup
+    immich-server.container                # web/API, 2283 bound to loopback only
+    caddy.container                        # reverse proxy :80/:443, Let's Encrypt auto-TLS
+    rclone-immich-photos.container         # FUSE mount s3:photos-immich → /mnt/immich-photos
+    rclone-immich-backup.container         # FUSE mount s3:backup-immich → /mnt/immich-backup
     newt.container                         # Pangolin tunnel (no inline secret; reads /etc/newt/newt.env)
 
     # --- systemd units / scripts ---
-    fcos-backup.{sh,service,timer}         # nightly DB+config snapshot to wasabi-immich-backup, mirror to Storj
+    fcos-backup.{sh,service,timer}         # nightly DB+config snapshot to immich-backup bucket, mirror to Storj
     storj-mirror.{sh,service,timer}        # rclone sync library/profile → Storj
     storj-prune.{sh,service,timer}         # delete Storj object versions older than 90d
     zram-setup.service                     # zram0 swap, zstd, 3G
@@ -97,7 +99,7 @@ Fallbacks:
 - **FCOS** — tracks `stable` stream. Zincati enabled, periodic 03:00 + 120-min reboot window (`files/zincati-updates.toml`). Earlier 44.x aarch64 stable had a polkit regression that broke zincati's rpm-ostree D-Bus calls; verify the current stable boots cleanly before relying on auto-reboot on production hosts.
 - **Postgres** — digest-pinned (vectorchord 0.4.3). No `AutoUpdate=` — bumping the digest is a manual Quadlet edit. Skipping the auto-update line avoids podman-auto-update's "tag and digest both specified" error (see `docs/troubleshooting.md`).
 - **Valkey** — digest-pinned, same treatment as Postgres.
-- **Immich server / Immich ML / rclone / newt** — floating tags (`:release`, `:latest`) with `AutoUpdate=registry`. `podman-auto-update.timer` pulls newer registry digests nightly.
+- **Immich server / Immich ML / rclone / newt / caddy** — floating tags (`:release`, `:latest`, `:2-alpine`) with `AutoUpdate=registry`. `podman-auto-update.timer` pulls newer registry digests nightly.
 
 Get latest stable: `curl -s https://builds.coreos.fedoraproject.org/streams/stable.json | jq -r '.architectures.aarch64.artifacts.qemu.release'`
 
@@ -105,17 +107,18 @@ Get latest stable: `curl -s https://builds.coreos.fedoraproject.org/streams/stab
 
 ```
 network-online.target
-  ├─ rclone-wasabi-immich.service         (FUSE /mnt/wasabi-immich → Wasabi photos bucket)
-  ├─ rclone-wasabi-immich-backup.service  (FUSE /mnt/wasabi-immich-backup → Wasabi backup bucket)
+  ├─ rclone-immich-photos.service         (FUSE /mnt/immich-photos → R2 photos-immich bucket)
+  ├─ rclone-immich-backup.service         (FUSE /mnt/immich-backup → R2 backup-immich bucket)
   ├─ immich-db.service                    (postgres on /var/srv/immich/db)
   ├─ immich-redis.service                 (valkey)
   ├─ immich-ml.service                    (gunicorn :3003)
-  ├─ immich-server.service                (publishes 2283, /data = FUSE mount)
+  ├─ immich-server.service                (127.0.0.1:2283, /data = /mnt/immich-photos FUSE, trusts RFC1918 proxies)
+  ├─ caddy.service                        (reverse proxy :80/:443, ACME via HTTP-01, certs in /var/srv/caddy/data)
   └─ newt.service                         (Pangolin tunnel, host network, uses podman socket)
 
 Timers (one-shot units fired on schedule):
   podman-auto-update.timer  → pulls newer registry digests, restarts updated containers
-  fcos-backup.timer         → fcos-backup.sh: snapshot DB+config → wasabi-immich-backup, mirror to Storj
+  fcos-backup.timer         → fcos-backup.sh: snapshot DB+config → R2 backup-immich, mirror to Storj
   storj-mirror.timer        → storj-mirror.sh: rclone sync library + profile to Storj
   storj-prune.timer         → storj-prune.sh: delete Storj object versions older than 90d
 ```
@@ -133,18 +136,18 @@ Server uses `Wants=` (not `Requires=`) so rclone hiccup doesn't permanently fail
 | **UTM sandbox** | App Sandbox blocks reading config.ign from `~/fcos`. Why we use standalone qemu instead. |
 | **brew reinstall qemu** | Resets signing — re-add `com.apple.security.hypervisor` only (not vm.networking, which AMFI rejects). |
 | **rclone FUSE in container** | Needs `AddDevice=/dev/fuse`, `AddCapability=SYS_ADMIN`, `SecurityLabelDisable=true`, mount as `:rshared`, plus `--allow-non-empty` (bind-mount makes target appear non-empty). |
-| **Stale FUSE mount after restart** | `ExecStartPre=-/usr/bin/umount -lR /mnt/wasabi-immich` before each start. |
+| **Stale FUSE mount after restart** | `ExecStartPre=-/usr/bin/umount -lR /mnt/immich-photos` before each start. |
 | **Zincati `/run/zincati/public` missing** | tmpfiles.d entry creates it (`zincati-public.conf`). Otherwise zincati fails to bind metrics socket. |
 | **Polkit on FCOS 44 aarch64** | Earlier 44.x stable had a "Lost the name PolicyKit1" loop that killed zincati's rpm-ostree D-Bus calls. If you see it, set `enabled = false` in `zincati-updates.toml` and pin to a known-good qcow2 until upstream ships a fix. |
 | **Ignition runs once per disk** | Day-2 Butane changes require `fcos-reset && fcos-boot`. No way to re-run on existing disk. |
-| **`/mnt` symlink** | FCOS symlinks `/mnt` → `/var/mnt`. `mount` shows `/var/mnt/wasabi-immich`. Both paths valid. |
+| **`/mnt` symlink** | FCOS symlinks `/mnt` → `/var/mnt`. `mount` shows `/var/mnt/immich-photos`. Both paths valid. |
 
 ## Secrets
 
-`files/db.env`, `files/server.env`, `files/rclone.conf`, `files/newt.env` contain real credentials. These four files are **gitignored**; only their `.example` variants are committed. On a fresh clone:
+`files/db.env`, `files/server.env`, `files/rclone.conf`, `files/newt.env`, `files/Caddyfile` contain environment-specific values. These files are **gitignored**; only their `.example` variants are committed. `Caddyfile` is not strictly a secret but pins the public hostname + ACME email so it stays out of git. On a fresh clone:
 
 ```bash
-for f in db.env server.env rclone.conf newt.env; do
+for f in db.env server.env rclone.conf newt.env Caddyfile; do
   cp "files/$f.example" "files/$f"
 done
 # edit each one, then:
@@ -172,16 +175,16 @@ Same Butane → AWS via EC2 user-data, GCP via instance metadata, Hetzner via `-
 |------|-----|
 | Update OS | Zincati enabled, `strategy=periodic` — reboots inside 03:00 + 120-min window (`files/zincati-updates.toml`) |
 | Update containers | `podman-auto-update.timer` runs daily, restarts containers with newer registry digest |
-| Inspect mount | `mount \| grep wasabi`, `sudo podman exec immich-server ls -la /data` |
+| Inspect mount | `mount \| grep immich-photos`, `sudo podman exec immich-server ls -la /data` |
 | Force update check | `sudo systemctl restart zincati` |
 | Pause OS updates | edit `/etc/zincati/config.d/90-zincati-updates.toml` → `enabled = false`, `sudo systemctl restart zincati` |
-| Force rclone reload | `sudo systemctl restart rclone-wasabi && sleep 5 && sudo systemctl restart immich-server` |
+| Force rclone reload | `sudo systemctl restart rclone-immich-photos && sleep 5 && sudo systemctl restart immich-server` |
 | Reach Immich | `http://<vm-ip>:2283` from LAN |
 
 ## Things to harden before prod
 
 1. **Secrets** — current state: gitignored real files + committed `.example` templates. Next: encrypt env files (sops + age), decrypt at boot via systemd-creds. Rotate `NEWT_SECRET` (was committed inline in a previous revision; assume burned).
-2. **TLS** — Caddy Quadlet in front, ACME via DNS challenge, drop `PublishPort=2283:2283`. Especially urgent if OCI public IP stays open.
+2. **TLS** — done: Caddy Quadlet terminates TLS on :443, HTTP-01 ACME via Let's Encrypt. `immich-server` published only to `127.0.0.1:2283` so loopback (newt) + the immich podman network (caddy) can reach it; external direct hits to :2283 blocked at the host. To harden further: switch to DNS-01 challenge so port 80 can be closed.
 3. **Backup encryption** — `fcos-backup.sh` tars `/etc/immich`, `/etc/rclone`, `/etc/containers/systemd` (incl. `newt.container`) into S3. Encrypt the tarball with `age` before upload.
 4. **Backup authority** — own `pg_dump` Quadlet/timer instead of trusting Immich's internal dump (see Service graph note).
 5. **Resource limits** — `Memory=` / `CPUQuota=` per container. ML eats ~3 GB of 6 GB host → OOM picks Postgres under pressure.

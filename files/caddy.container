@@ -1,0 +1,24 @@
+[Unit]
+Description=Caddy reverse proxy
+After=network-online.target immich-server.service
+Wants=network-online.target immich-server.service
+StartLimitIntervalSec=0
+
+[Container]
+Image=docker.io/caddy:2-alpine
+ContainerName=caddy
+Network=immich.network
+PublishPort=80:80
+PublishPort=443:443
+PublishPort=443:443/udp
+Volume=/etc/caddy/Caddyfile:/etc/caddy/Caddyfile:ro,Z
+Volume=/var/srv/caddy/data:/data:Z
+Volume=/var/srv/caddy/config:/config:Z
+AutoUpdate=registry
+
+[Service]
+Restart=always
+TimeoutStartSec=300
+
+[Install]
+WantedBy=multi-user.target

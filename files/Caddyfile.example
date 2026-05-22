@@ -1,0 +1,7 @@
+{
+	email you@example.com
+}
+
+photos.example.com {
+	reverse_proxy immich-server:2283
+}

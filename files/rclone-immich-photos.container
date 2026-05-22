@@ -1,5 +1,5 @@
 [Unit]
-Description=rclone mount Wasabi (wasabi-immich-backup)
+Description=rclone mount Immich photos (s3:photos-immich)
 After=network-online.target
 Wants=network-online.target
 Before=immich-server.service
@@ -7,29 +7,29 @@ StartLimitIntervalSec=0
 
 [Container]
 Image=docker.io/rclone/rclone:latest
-ContainerName=rclone-wasabi-immich-backup
+ContainerName=rclone-immich-photos
 AutoUpdate=registry
 
 Volume=/etc/rclone:/config:Z,ro
-Volume=/mnt/wasabi-immich-backup:/mnt/wasabi-immich-backup:rshared
-Volume=/var/cache/rclone-wasabi-backup:/cache:Z
+Volume=/mnt/immich-photos:/mnt/immich-photos:rshared
+Volume=/var/cache/rclone-photos:/cache:Z
 
 AddDevice=/dev/fuse
 AddCapability=SYS_ADMIN
 SecurityLabelDisable=true
 
-Exec=mount wasabi:wasabi-immich-backup /mnt/wasabi-immich-backup \
+Exec=mount s3:photos-immich /mnt/immich-photos \
   --config /config/rclone.conf \
   --allow-other --allow-non-empty --uid 1000 --gid 1001 --umask 022 \
   --poll-interval 0 \
-  --vfs-cache-mode full --vfs-cache-max-size 1G --vfs-cache-max-age 2h \
+  --vfs-cache-mode full --vfs-cache-max-size 20G --vfs-cache-max-age 24h \
   --vfs-write-back 10s --vfs-read-ahead 128M --dir-cache-time 72h \
   --buffer-size 32M --cache-dir /cache \
   --log-level INFO
 
 [Service]
-ExecStartPre=-/usr/bin/umount -lR /mnt/wasabi-immich-backup
-ExecStopPost=-/usr/bin/umount -lR /mnt/wasabi-immich-backup
+ExecStartPre=-/usr/bin/umount -lR /mnt/immich-photos
+ExecStopPost=-/usr/bin/umount -lR /mnt/immich-photos
 Restart=always
 RestartSec=10
 TimeoutStartSec=120

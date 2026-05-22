@@ -1,10 +1,14 @@
-[wasabi]
+[s3]
+# Swap providers by editing this block only. Examples:
+#   Cloudflare R2: provider = Cloudflare, endpoint = https://<account>.r2.cloudflarestorage.com
+#   Wasabi:        provider = Wasabi,     endpoint = s3.<region>.wasabisys.com, region = <region>
+#   Backblaze B2:  provider = Other,      endpoint = s3.<region>.backblazeb2.com
+#   AWS S3:        provider = AWS,        region  = <region> (no endpoint)
 type = s3
-provider = Wasabi
-access_key_id = REPLACE_WASABI_ACCESS_KEY
-secret_access_key = REPLACE_WASABI_SECRET_KEY
-endpoint = s3.ap-southeast-2.wasabisys.com
-region = ap-southeast-2
+provider = Cloudflare
+access_key_id = REPLACE_ACCESS_KEY
+secret_access_key = REPLACE_SECRET_KEY
+endpoint = https://REPLACE_ACCOUNT_ID.r2.cloudflarestorage.com
 directory_markers = true
 
 [storj]
@@ -15,3 +19,10 @@ access_key_id = REPLACE_STORJ_ACCESS_KEY
 secret_access_key = REPLACE_STORJ_SECRET_KEY
 chunk_size = 64Mi
 upload_concurrency = 4
+
+[azure-dr]
+# Azure Blob DR target (Cool tier, copy-3). Get key:
+#   az storage account keys list -n fcosdr4a5282b9 -g fcos-dr-rg --query '[0].value' -o tsv
+type = azureblob
+account = fcosdr4a5282b9
+key = REPLACE_AZURE_STORAGE_KEY

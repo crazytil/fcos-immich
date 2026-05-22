@@ -1,5 +1,6 @@
 # Source me: `source /path/to/fcos/env.sh`
 # Provides: butane, coreos-installer (via docker, session-scoped)
+# shellcheck shell=bash
 
 export FCOS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 

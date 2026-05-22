@@ -89,7 +89,7 @@ Ignition runs **once per disk**. Changing `config.bu` and re-running `oci-deploy
 For day-2 changes:
 
 1. **Drift-aware hot patch** — write the new Quadlet to `/etc/containers/systemd/<name>.container`, `daemon-reload`, `restart`. Edit the Butane source in this repo too so the next provisioned instance picks it up.
-2. **Full rebuild** — terminate the instance, re-run `oci-deploy.sh`. Boot volume is wiped (so DB is wiped). Restore from `/mnt/wasabi-immich-backup/db/daily/*.sql.gz` after first boot.
+2. **Full rebuild** — terminate the instance, re-run `oci-deploy.sh`. Boot volume is wiped (so DB is wiped). Restore from `/mnt/immich-backup/db/daily/*.sql.gz` after first boot.
 
 The hot-patch route is what `CLAUDE.md` recommends for routine changes. Rebuild only when the host has drifted past comprehension or you want a clean baseline.
 
